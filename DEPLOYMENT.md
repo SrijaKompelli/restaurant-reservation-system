@@ -1,186 +1,279 @@
-# Vercel Deployment Guide
+# Deployment Guide
 
-## ⚠️ Important: Correct vercel.json Format
+**Frontend:** Vercel (static site hosting)  
+**Backend:** Render (Node.js web service)  
+**Database:** MongoDB Atlas
 
-**DO NOT use `"services"` or `"rewrites"`** — these are not valid Vercel configuration options. The correct format is shown in `vercel.json` with `"builds"` and `"routes"`.
+---
 
-## 🔧 Setup Instructions
+## Quick Start
 
-### 1. Prerequisites
+1. **Backend on Render:** Follow [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md)
+2. **Frontend on Vercel:**
+   - Update `frontend/.env.production` with Render backend URL
+   - Push to GitHub
+   - Vercel auto-deploys
 
-- GitHub account with your repo pushed
-- Vercel account (free tier OK)
-- MongoDB Atlas account or local MongoDB access
+---
 
-### 2. Environment Variables for Vercel
+## Architecture
 
-In your **Vercel Dashboard → Project Settings → Environment Variables**, add:
-
-| Variable | Value | Notes |
-|----------|-------|-------|
-| `MONGO_URI` | `mongodb+srv://user:pass@cluster.mongodb.net/restaurant-reservation` | Your MongoDB Atlas connection string |
-| `JWT_SECRET` | Random secure string (32+ chars) | Use `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` to generate |
-| `ADMIN_EMAIL` | `admin@example.com` | Default admin account |
-| `ADMIN_PASSWORD` | `admin123` | Default admin password (change after first login) |
-
-**For VITE variables:**
-- Frontend automatically uses `/api` (set in `frontend/.env.production`)
-- No need to set `VITE_API_URL` in Vercel
-
-### 3. MongoDB Atlas Whitelist
-
-If using **MongoDB Atlas**:
-1. Go to **Network Access** in Atlas
-2. Add IP: `0.0.0.0/0` (allows all Vercel IPs)
-   - OR whitelist specific Vercel IP ranges
-3. Save changes
-
-## 🚀 Deployment Steps
-
-### Option A: Deploy via Git Push (Recommended)
-
-```bash
-git add .
-git commit -m "Ready for Vercel deployment"
-git push origin main
+```
+┌─────────────────────┐
+│  Browser            │
+└──────────┬──────────┘
+           │
+      ┌────▼─────┐
+      │  Vercel  │ (Frontend React App)
+      │ Static   │ https://your-app.vercel.app
+      └────┬─────┘
+           │
+      ┌────▼──────────────┐
+      │  Render           │ (Backend Node.js)
+      │  Web Service      │ https://restaurant-api.onrender.com
+      └────┬──────────────┘
+           │
+      ┌────▼──────────────┐
+      │ MongoDB Atlas     │ (Database)
+      │ Cloud Database    │
+      └───────────────────┘
 ```
 
-Vercel automatically detects the push and deploys.
+---
 
-### Option B: Deploy via Vercel CLI
+## Frontend Deployment (Vercel)
 
-```bash
-npm install -g vercel
-vercel login
-vercel --prod
-```
+### 1. vercel.json Configuration
 
-### Option C: Vercel Dashboard
+The `vercel.json` file is pre-configured for frontend-only static hosting:
 
-1. Go to https://vercel.com
-2. Click "New Project"
-3. Import your GitHub repo
-4. Set environment variables (from step 2)
-5. Click "Deploy"
-
-## 📋 What Vercel Does Automatically
-
-1. **Install:** Runs `npm install-all` (installs all node_modules)
-2. **Build:** Runs `npm run build` (builds frontend to `frontend/dist`)
-3. **Backend:** Creates serverless function from `backend/server.js`
-4. **Routing:** 
-   - `/api/*` → backend serverless function
-   - `/` → frontend static files
-   - Page refreshes → fallback to `index.html` (SPA routing)
-
-## ✅ Post-Deployment Testing
-
-1. **Visit your Vercel URL** (e.g., `https://project-name.vercel.app`)
-2. **Admin Login:**
-   - Email: `admin@example.com`
-   - Password: `admin123` (change this!)
-3. **Test Flows:**
-   - Register new customer
-   - Book a table
-   - View reservations
-   - Cancel reservation
-   - Admin view all reservations
-
-## 🔴 Common Deployment Errors
-
-### Error: "Cannot find module"
-
-**Fix:** Ensure all dependencies are in `backend/package.json` and `frontend/package.json`
-
-```bash
-# Reinstall locally first
-npm install-all
-
-# Then git push
-```
-
-### Error: "MongoDB connection failed"
-
-**Possible fixes:**
-1. Verify `MONGO_URI` is set in Vercel environment variables
-2. Check MongoDB Atlas IP whitelist (should include `0.0.0.0/0`)
-3. Test MongoDB connection locally:
-   ```bash
-   cd backend
-   node -e "const db = require('./config/db'); db();"
-   ```
-
-### Error: "401 Unauthorized" on API calls
-
-**Likely cause:** `JWT_SECRET` doesn't match locally
-- Verify `JWT_SECRET` is the same on Vercel and locally
-- Clear browser localStorage: `localStorage.clear()`
-- Log in again
-
-### Error: "404 on page refresh"
-
-**Fix:** Already handled by vercel.json:
 ```json
 {
-  "src": "/(.*)",
-  "dest": "frontend/dist/index.html",
-  "status": 200
+  "version": 2,
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/dist",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "frontend/dist/index.html",
+      "status": 200
+    }
+  ]
 }
 ```
 
-If still broken, ensure vercel.json syntax is correct (no typos).
+**What it does:**
+- Builds frontend: `cd frontend && npm run build` → outputs to `frontend/dist`
+- Routes all requests to `index.html` (SPA routing)
+- No backend routes (backend runs separately on Render)
 
-### Error: "No table available for that party size"
+### 2. Update Frontend API URL
 
-**Fixes:**
-1. Verify tables are seeded:
-   ```bash
-   cd backend
-   node seed/seedTables.js
-   ```
-2. Check MongoDB has tables: 
-   - Connect to MongoDB Atlas
-   - Look in `restaurant-reservation` database → `tables` collection
-   - Should show 6 tables (capacities: 2, 2, 4, 4, 6, 8)
+Edit `frontend/.env.production`:
 
-## 🧪 Local Testing Before Deployment
-
-```bash
-# 1. Install dependencies
-npm install-all
-
-# 2. Seed tables
-cd backend
-node seed/seedTables.js
-
-# 3. Start backend (Terminal 1)
-npm run dev
-
-# 4. Start frontend (Terminal 2)
-cd frontend
-npm run dev
-
-# 5. Test at http://localhost:5173
+```env
+VITE_API_URL=https://restaurant-api.onrender.com/api
 ```
 
-## 📊 Deployment Checklist
+Replace `restaurant-api` with your actual Render service name.
 
-- [ ] GitHub repo with all code pushed
-- [ ] Vercel account created and linked to GitHub
-- [ ] Environment variables set in Vercel:
-  - [ ] `MONGO_URI`
-  - [ ] `JWT_SECRET`
-  - [ ] `ADMIN_EMAIL`
-  - [ ] `ADMIN_PASSWORD`
-- [ ] MongoDB Atlas IP whitelist configured
-- [ ] vercel.json syntax verified (no "services" or "rewrites")
-- [ ] Local testing passed
-- [ ] Git push to trigger deployment
-- [ ] Vercel build completes (no red errors)
-- [ ] Live URL accessible and tested
+### 3. Deploy to Vercel
 
-## 🔗 Useful Links
+```bash
+# Commit and push
+git add .
+git commit -m "Configure for Render backend"
+git push origin main
 
-- Vercel Docs: https://vercel.com/docs
-- MongoDB Atlas: https://www.mongodb.com/cloud/atlas
-- Environment Variables: https://vercel.com/docs/projects/environment-variables
+# Vercel auto-deploys
+```
+
+Or manually via Vercel dashboard:
+1. https://vercel.com
+2. New Project → Import GitHub repo
+3. Vercel auto-detects `vercel.json` settings
+4. Deploy
+
+---
+
+## Backend Deployment (Render)
+
+### Full Instructions
+
+See **[RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md)** for complete setup including:
+- MongoDB Atlas connection
+- Render web service creation
+- Environment variables
+- Troubleshooting
+
+### Quick Version
+
+1. Create Render account: https://render.com
+2. Create MongoDB Atlas cluster: https://www.mongodb.com/cloud/atlas
+3. Create Render web service:
+   - **Name:** `restaurant-api`
+   - **Runtime:** Node
+   - **Build Command:** `cd backend && npm install`
+   - **Start Command:** `cd backend && npm start`
+   - **Environment Variables:**
+     - `MONGO_URI`: Your MongoDB connection string
+     - `JWT_SECRET`: Random 32-char string
+     - `ADMIN_EMAIL`: `admin@example.com`
+     - `ADMIN_PASSWORD`: `admin123`
+
+4. Get your Render URL: `https://restaurant-api.onrender.com`
+5. Update `frontend/.env.production` with this URL
+6. Push to GitHub to trigger frontend redeploy
+
+---
+
+## Environment Variables
+
+### Vercel (Frontend)
+
+No environment variables needed — automatically handled via `frontend/.env.production`.
+
+### Render (Backend) — Set in Dashboard
+
+```
+NODE_ENV=production
+MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/restaurant-reservation
+JWT_SECRET=<random-32-char-string>
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin123
+```
+
+### MongoDB Atlas
+
+- Connection string: `mongodb+srv://user:pass@cluster.mongodb.net/database-name`
+- IP Whitelist: Add `0.0.0.0/0` to allow Render access
+
+---
+
+## Testing Post-Deployment
+
+### 1. Check Backend is Running
+
+```bash
+curl https://restaurant-api.onrender.com
+```
+
+Should respond (200 or 404 is OK, means server is up).
+
+### 2. Check Frontend is Loading
+
+Visit `https://your-app.vercel.app` — should see login page.
+
+### 3. Full User Flow
+
+1. Register as customer
+2. Book a table
+3. View reservation
+4. Login as admin: `admin@example.com` / `admin123`
+5. View all reservations
+
+### 4. Check API Connectivity
+
+In browser DevTools (F12) → Network tab:
+- Make an API call (login, register, etc.)
+- Should see request to `https://restaurant-api.onrender.com/api/*`
+- Response should be 200-201
+
+---
+
+## Troubleshooting
+
+### Backend won't start (Render logs show error)
+
+**Common cause:** Missing environment variables
+
+**Fix:**
+1. Check Render dashboard → Environment tab
+2. Verify all 4 vars are set: `MONGO_URI`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`
+3. Save and redeploy
+
+### Frontend shows API errors
+
+**Symptom:** "Failed to book table", "Cannot fetch reservations"
+
+**Fixes:**
+1. Verify `frontend/.env.production` has correct Render URL
+2. Check browser Network tab for actual API request URL
+3. If seeing CORS errors, backend CORS may not be enabled (check `backend/server.js`)
+
+### MongoDB connection failed
+
+**Symptom:** Render logs show "Error: querySrv ECONNREFUSED"
+
+**Fixes:**
+1. Verify `MONGO_URI` is set on Render
+2. Check MongoDB Atlas IP whitelist includes `0.0.0.0/0`
+3. Test locally: `MONGO_URI="your-uri" npm start`
+
+### "No table available" error
+
+**Fix:** Seed tables in production database
+
+```bash
+# From your local machine
+MONGO_URI="your-mongodb-atlas-uri" node backend/seed/seedTables.js
+```
+
+Or manually insert 6 tables into MongoDB Atlas.
+
+### 404 errors on page refresh
+
+**Already handled:** `vercel.json` routes to `index.html` for SPA routing.
+
+If still broken, check `vercel.json` syntax.
+
+---
+
+## Cost Summary
+
+**Render Free Tier:**
+- ✅ Always-on web service (0.1 CPU, 512 MB RAM)
+- ⚠️ Spins down after 15 mins inactivity (cold start on wake)
+
+**MongoDB Atlas Free Tier:**
+- ✅ 512 MB storage, 3 backups, shared cluster
+
+**Vercel Free Tier:**
+- ✅ Unlimited static deployments, auto-scaling
+
+Total cost: **$0/month** for free tiers (pay as you grow).
+
+---
+
+## Deployment Checklist
+
+**Backend (Render):**
+- [ ] MongoDB Atlas cluster created
+- [ ] Render account created
+- [ ] Web service created with Node runtime
+- [ ] Environment variables set (4 required)
+- [ ] Service starts successfully
+- [ ] Get Render URL: `https://restaurant-api.onrender.com`
+
+**Frontend (Vercel):**
+- [ ] Update `frontend/.env.production` with Render URL
+- [ ] Push to GitHub
+- [ ] Vercel auto-deploys
+- [ ] Get Vercel URL: `https://your-app.vercel.app`
+
+**Testing:**
+- [ ] Backend API responds (curl test)
+- [ ] Frontend loads at Vercel URL
+- [ ] Can register new customer
+- [ ] Can book a table
+- [ ] Can login as admin
+- [ ] Admin can see all reservations
+
+---
+
+## Need More Help?
+
+- **Render Issues:** See [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md)
+- **Frontend Issues:** See [README.md](./README.md)
+- **Render Docs:** https://render.com/docs
+- **Vercel Docs:** https://vercel.com/docs

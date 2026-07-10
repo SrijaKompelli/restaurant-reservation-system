@@ -53,45 +53,24 @@ npm run dev
 - Admin: `admin@example.com` / `admin123`
 - Or register as a new customer
 
-## 🌐 Vercel Deployment
+## 🌐 Deployment
 
-### Prerequisites
-- GitHub repo connected to Vercel
-- MongoDB Atlas account (or use local MongoDB)
+**Frontend:** Vercel (static site)  
+**Backend:** Render (Node.js web service)  
+**Database:** MongoDB Atlas
 
-### Environment Variables on Vercel
+### Quick Deploy
 
-Set these in **Vercel Dashboard → Project Settings → Environment Variables:**
+1. **Setup Backend on Render:** Follow [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md)
+2. **Deploy Frontend to Vercel:**
+   ```bash
+   git add .
+   git commit -m "Ready for deployment"
+   git push origin main
+   ```
+3. Update `frontend/.env.production` with your Render URL
 
-```
-MONGO_URI=mongodb+srv://user:pass@cluster.mongodb.net/restaurant-reservation
-JWT_SECRET=<strong-random-key>
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=admin123
-```
-
-### Deploy
-
-```bash
-# Option 1: Git Push (recommended)
-git push origin main
-# Vercel automatically deploys
-
-# Option 2: Vercel CLI
-vercel --prod
-```
-
-**Vercel will automatically:**
-1. Install dependencies via `npm install-all`
-2. Build frontend: `npm run build` (builds to `frontend/dist`)
-3. Create serverless backend function from `backend/server.js`
-4. Route `/api/*` to backend, all others to frontend
-
-### Post-Deployment
-
-1. Visit your Vercel URL
-2. Admin account auto-created on first backend initialization
-3. Register as customer or login with admin credentials
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for complete instructions.
 
 ## 📋 Project Structure
 

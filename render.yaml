@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: restaurant-api
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGO_URI
+        fromDatabase:
+          name: restaurant-db
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_EMAIL
+        value: admin@example.com
+      - key: ADMIN_PASSWORD
+        sync: false
+
+databases:
+  - name: restaurant-db
+    ipAllowList: []
