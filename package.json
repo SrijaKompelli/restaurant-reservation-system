@@ -1,0 +1,14 @@
+{
+  "name": "restaurant-reservation-system",
+  "version": "1.0.0",
+  "description": "Restaurant reservation system with React frontend and Express backend",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "dev": "cd backend && npm run dev",
+    "build": "cd frontend && npm run build"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}

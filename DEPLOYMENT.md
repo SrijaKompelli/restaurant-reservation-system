@@ -1,95 +1,186 @@
 # Vercel Deployment Guide
 
-## Setup Instructions
+## ⚠️ Important: Correct vercel.json Format
 
-### 1. Backend Deployment
+**DO NOT use `"services"` or `"rewrites"`** — these are not valid Vercel configuration options. The correct format is shown in `vercel.json` with `"builds"` and `"routes"`.
 
-The backend is deployed as a Node.js serverless function on Vercel.
+## 🔧 Setup Instructions
 
-**Environment Variables Required on Vercel:**
+### 1. Prerequisites
 
-Set these in your Vercel project settings → Environment Variables:
+- GitHub account with your repo pushed
+- Vercel account (free tier OK)
+- MongoDB Atlas account or local MongoDB access
 
-```
-MONGO_URI=mongodb+srv://user:password@cluster0.mongodb.net/restaurant-reservation
-JWT_SECRET=your-secure-secret-key (use a strong random string)
-ADMIN_EMAIL=admin@example.com (optional, defaults to admin@example.com)
-ADMIN_PASSWORD=admin123 (optional, defaults to admin123)
-```
+### 2. Environment Variables for Vercel
 
-### 2. Frontend Deployment
+In your **Vercel Dashboard → Project Settings → Environment Variables**, add:
 
-The frontend is built as a static site on Vercel and serves React.
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `MONGO_URI` | `mongodb+srv://user:pass@cluster.mongodb.net/restaurant-reservation` | Your MongoDB Atlas connection string |
+| `JWT_SECRET` | Random secure string (32+ chars) | Use `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` to generate |
+| `ADMIN_EMAIL` | `admin@example.com` | Default admin account |
+| `ADMIN_PASSWORD` | `admin123` | Default admin password (change after first login) |
 
-**Key Configuration:**
-- Build command: `cd frontend && npm run build`
-- Output directory: `frontend/dist`
-- Install command: `npm install`
+**For VITE variables:**
+- Frontend automatically uses `/api` (set in `frontend/.env.production`)
+- No need to set `VITE_API_URL` in Vercel
 
-**Environment Variables:**
-- `VITE_API_URL=/api` (automatically set via `.env.production`)
+### 3. MongoDB Atlas Whitelist
 
-### 3. API Routing
+If using **MongoDB Atlas**:
+1. Go to **Network Access** in Atlas
+2. Add IP: `0.0.0.0/0` (allows all Vercel IPs)
+   - OR whitelist specific Vercel IP ranges
+3. Save changes
 
-The `vercel.json` file handles routing:
-- `/api/*` routes → backend serverless function
-- All other routes → frontend static files (with SPA fallback to index.html)
-
-## Deployment Steps
+## 🚀 Deployment Steps
 
 ### Option A: Deploy via Git Push (Recommended)
 
-1. Connect your GitHub repo to Vercel
-2. Push to main/master branch
-3. Vercel automatically builds and deploys
+```bash
+git add .
+git commit -m "Ready for Vercel deployment"
+git push origin main
+```
+
+Vercel automatically detects the push and deploys.
 
 ### Option B: Deploy via Vercel CLI
 
 ```bash
-npm i -g vercel
+npm install -g vercel
 vercel login
 vercel --prod
 ```
 
-## After Deployment
+### Option C: Vercel Dashboard
 
-1. Visit your Vercel deployment URL
-2. Register a customer account or log in with admin:
+1. Go to https://vercel.com
+2. Click "New Project"
+3. Import your GitHub repo
+4. Set environment variables (from step 2)
+5. Click "Deploy"
+
+## 📋 What Vercel Does Automatically
+
+1. **Install:** Runs `npm install-all` (installs all node_modules)
+2. **Build:** Runs `npm run build` (builds frontend to `frontend/dist`)
+3. **Backend:** Creates serverless function from `backend/server.js`
+4. **Routing:** 
+   - `/api/*` → backend serverless function
+   - `/` → frontend static files
+   - Page refreshes → fallback to `index.html` (SPA routing)
+
+## ✅ Post-Deployment Testing
+
+1. **Visit your Vercel URL** (e.g., `https://project-name.vercel.app`)
+2. **Admin Login:**
    - Email: `admin@example.com`
-   - Password: `admin123`
-3. Test customer and admin flows
+   - Password: `admin123` (change this!)
+3. **Test Flows:**
+   - Register new customer
+   - Book a table
+   - View reservations
+   - Cancel reservation
+   - Admin view all reservations
 
-## Troubleshooting
+## 🔴 Common Deployment Errors
 
-**Issue: "No table available for that party size"**
-- Ensure tables are seeded in MongoDB
-- Run the seed script locally first, or verify DB connection
+### Error: "Cannot find module"
 
-**Issue: Cannot connect to MongoDB**
-- Check `MONGO_URI` is set correctly in Vercel environment
-- Verify MongoDB Atlas IP whitelist includes Vercel IPs (allow 0.0.0.0/0 or add Vercel IPs)
-
-**Issue: Login/Auth not working**
-- Check `JWT_SECRET` is set in Vercel environment
-- Clear browser localStorage and log in again
-
-**Issue: Frontend shows 404 on page refresh**
-- Vercel.json routing to `index.html` should handle this automatically
-- If not, check vercel.json syntax
-
-## Local Testing Before Deployment
+**Fix:** Ensure all dependencies are in `backend/package.json` and `frontend/package.json`
 
 ```bash
-# Seed tables
+# Reinstall locally first
+npm install-all
+
+# Then git push
+```
+
+### Error: "MongoDB connection failed"
+
+**Possible fixes:**
+1. Verify `MONGO_URI` is set in Vercel environment variables
+2. Check MongoDB Atlas IP whitelist (should include `0.0.0.0/0`)
+3. Test MongoDB connection locally:
+   ```bash
+   cd backend
+   node -e "const db = require('./config/db'); db();"
+   ```
+
+### Error: "401 Unauthorized" on API calls
+
+**Likely cause:** `JWT_SECRET` doesn't match locally
+- Verify `JWT_SECRET` is the same on Vercel and locally
+- Clear browser localStorage: `localStorage.clear()`
+- Log in again
+
+### Error: "404 on page refresh"
+
+**Fix:** Already handled by vercel.json:
+```json
+{
+  "src": "/(.*)",
+  "dest": "frontend/dist/index.html",
+  "status": 200
+}
+```
+
+If still broken, ensure vercel.json syntax is correct (no typos).
+
+### Error: "No table available for that party size"
+
+**Fixes:**
+1. Verify tables are seeded:
+   ```bash
+   cd backend
+   node seed/seedTables.js
+   ```
+2. Check MongoDB has tables: 
+   - Connect to MongoDB Atlas
+   - Look in `restaurant-reservation` database → `tables` collection
+   - Should show 6 tables (capacities: 2, 2, 4, 4, 6, 8)
+
+## 🧪 Local Testing Before Deployment
+
+```bash
+# 1. Install dependencies
+npm install-all
+
+# 2. Seed tables
 cd backend
 node seed/seedTables.js
 
-# Run backend
+# 3. Start backend (Terminal 1)
 npm run dev
 
-# In another terminal, run frontend
+# 4. Start frontend (Terminal 2)
 cd frontend
 npm run dev
+
+# 5. Test at http://localhost:5173
 ```
 
-Visit `http://localhost:5173` and test the full flow.
+## 📊 Deployment Checklist
+
+- [ ] GitHub repo with all code pushed
+- [ ] Vercel account created and linked to GitHub
+- [ ] Environment variables set in Vercel:
+  - [ ] `MONGO_URI`
+  - [ ] `JWT_SECRET`
+  - [ ] `ADMIN_EMAIL`
+  - [ ] `ADMIN_PASSWORD`
+- [ ] MongoDB Atlas IP whitelist configured
+- [ ] vercel.json syntax verified (no "services" or "rewrites")
+- [ ] Local testing passed
+- [ ] Git push to trigger deployment
+- [ ] Vercel build completes (no red errors)
+- [ ] Live URL accessible and tested
+
+## 🔗 Useful Links
+
+- Vercel Docs: https://vercel.com/docs
+- MongoDB Atlas: https://www.mongodb.com/cloud/atlas
+- Environment Variables: https://vercel.com/docs/projects/environment-variables

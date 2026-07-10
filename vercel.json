@@ -1,11 +1,26 @@
 {
   "version": 2,
-  "buildCommand": "cd frontend && npm run build",
+  "installCommand": "npm install-all",
+  "buildCommand": "npm run build",
+  "env": {
+    "MONGO_URI": "@mongo_uri",
+    "JWT_SECRET": "@jwt_secret",
+    "ADMIN_EMAIL": "@admin_email",
+    "ADMIN_PASSWORD": "@admin_password"
+  },
   "builds": [
-    { "src": "backend/server.js", "use": "@vercel/node" }
+    { 
+      "src": "frontend/.output/**", 
+      "use": "@vercel/static-build",
+      "config": { "distDir": "frontend/dist" }
+    },
+    { 
+      "src": "backend/server.js", 
+      "use": "@vercel/node" 
+    }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "backend/server.js" },
-    { "src": "/(.*)", "dest": "frontend/dist/index.html" }
+    { "src": "/api(.*)", "dest": "backend/server.js" },
+    { "src": "/(.*)", "dest": "frontend/dist/index.html", "status": 200 }
   ]
 }
